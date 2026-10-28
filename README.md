@@ -9,7 +9,7 @@ Live DevTools Inspector is a local Python MCP server for diagnosing an explicitl
 - Chrome or Chromium launched with a loopback-only DevTools debugging endpoint.
 - VS Code with an MCP-capable agent, Codex CLI/IDE, or another coding agent that supports local stdio MCP servers.
 
-The package is named `live-devtools-inspector-mcp`. Before publication, verify this name is still available on PyPI and replace the example installer host below with a domain you control.
+The package is named `devtools-inspector-mcp`. Before publication, verify this name is still available on PyPI and replace the example installer host below with a domain you control.
 
 ## Install
 
@@ -43,7 +43,7 @@ shasum -a 256 install.sh
 sh install.sh --agent vscode --project-root .
 ```
 
-The installer asks for `vscode`, `codex`, or `manual` unless `--agent` is supplied. It requires `uv`, runs `uv tool install --upgrade live-devtools-inspector-mcp`, verifies `live-devtools-mcp` remains running as a stdio server, and configures only the chosen agent.
+The installer asks for `vscode`, `codex`, or `manual` unless `--agent` is supplied. It requires `uv`, runs `uv tool install --upgrade devtools-inspector-mcp`, verifies `live-devtools-mcp` remains running as a stdio server, and configures only the chosen agent.
 
 For development from this checkout:
 
@@ -180,7 +180,7 @@ The server never treats a public URL as repository authorization, never edits a 
 Remove the agent configuration first, then uninstall the isolated tool:
 
 ```sh
-uv tool uninstall live-devtools-inspector-mcp
+uv tool uninstall devtools-inspector-mcp
 ```
 
 For Codex, run `codex mcp remove live-devtools-inspector`. For VS Code, remove only the `live-devtools-inspector` entry from `.vscode/mcp.json` after reviewing that file's other servers.

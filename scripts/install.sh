@@ -2,7 +2,7 @@
 # DevTools Inspector MCP - one-command installer (macOS / Linux)
 set -eu
 
-PACKAGE_NAME="${DEVTOOLS_INSPECTOR_PACKAGE:-live-devtools-inspector-mcp}"
+PACKAGE_NAME="${DEVTOOLS_INSPECTOR_PACKAGE:-devtools-inspector-mcp}"
 AGENT=""
 PROJECT_ROOT="$(pwd)"
 SKIP_CHROME_CHECK=0

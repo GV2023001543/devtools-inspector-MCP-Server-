@@ -4,7 +4,7 @@ param(
 
   [string]$ProjectRoot = (Get-Location).Path,
 
-  [string]$PackageName = "live-devtools-inspector-mcp",
+  [string]$PackageName = "devtools-inspector-mcp",
 
   [switch]$SkipChromeCheck
 )

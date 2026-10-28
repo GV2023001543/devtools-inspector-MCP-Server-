@@ -3,7 +3,7 @@ requires = ["hatchling>=1.26,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "live-devtools-inspector-mcp"
+name = "devtools-inspector-mcp"
 version = "0.1.0"
 description = "A local MCP server for live Chrome DevTools diagnostics."
 readme = "README.md"
