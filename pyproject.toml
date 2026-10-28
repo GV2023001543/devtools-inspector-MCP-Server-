@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "live-devtools-inspector-mcp"
+version = "0.1.0"
+description = "A local MCP server for live Chrome DevTools diagnostics."
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["chrome", "cdp", "devtools", "mcp", "diagnostics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Debuggers",
+]
+dependencies = [
+    "fastmcp==4.0.5",
+    "pydantic==2.13.4",
+    "websockets==15.0.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1", "pytest-asyncio==1.4.1"]
+
+[project.scripts]
+live-devtools-mcp = "devtools_inspector.server:main"
+live-devtools-mcp-setup = "devtools_inspector.setup:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/devtools_inspector"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

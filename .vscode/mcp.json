@@ -1,0 +1,16 @@
+{
+  "servers": {
+    "devtools-inspector": {
+      "type": "stdio",
+      "command": "C:\\Users\\yedur\\Downloads\\mcp_server\\.venv\\Scripts\\python.exe",
+      "args": [
+        "-m",
+        "devtools_inspector.server"
+      ],
+      "cwd": "C:\\Users\\yedur\\Downloads\\mcp_server",
+      "env": {
+        "DEVTOOLS_PROJECT_ROOT": "C:\\Users\\yedur\\Downloads\\mcp_server"
+      }
+    }
+  }
+}
