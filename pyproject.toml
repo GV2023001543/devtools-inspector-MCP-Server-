@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "devtools-inspector-mcp"
-version = "0.1.0"
+version = "0.1.2"
 description = "A local MCP server for live Chrome DevTools diagnostics."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -34,6 +34,15 @@ live-devtools-mcp = "devtools_inspector.server:main"
 live-devtools-mcp-setup = "devtools_inspector.setup:main"
 
 [tool.hatch.build.targets.wheel]
+exclude = [
+    "/.venv",
+    "/.venv-1",
+    "/.pytest_cache",
+    "/dist",
+    "/.devtools_mcp",
+    "/**/__pycache__",
+    "/**/*.py[cod]",
+]
 packages = ["src/devtools_inspector"]
 
 [tool.pytest.ini_options]

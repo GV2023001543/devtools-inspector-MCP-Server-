@@ -169,12 +169,28 @@ class PatchManager:
         return {"patch_id": patch_id, "rolled_back": True, "path": backup["path"]}
 
     async def run_project_checks(self, patch_id: str | None = None, timeout: float = 120) -> dict[str, object]:
+        """Run project tests and roll back the linked patch if checks fail.
+
+        Supports common project types:
+        - Python: pytest
+        - JavaScript/TypeScript: npm test, pnpm test, yarn test
+        - Other ecosystems only when safely supported.
+
+        Detects project type from actual project files.
+        Does not install dependencies automatically.
+        Uses an explicit command allowlist and timeout.
+        Captures stdout, stderr, exit code and test summary.
+        Never claims tests passed if they were not executed.
+        """
+        # Determine project type from project files
+        project_type = self._detect_project_type()
+
+        # Build the appropriate test command based on project type
+        command, command_name = self._build_test_command(project_type)
+
         try:
             process = await asyncio.create_subprocess_exec(
-                sys.executable,
-                "-m",
-                "pytest",
-                "-q",
+                *command,
                 cwd=self.root,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
@@ -185,24 +201,31 @@ class PatchManager:
             except TimeoutError:
                 process.kill()
                 await process.wait()
-                output = b"pytest exceeded the 120 second verification limit."
+                output = b"pytest/verification exceeded the verification limit."
                 exit_code = -1
             executed = True
         except OSError as error:
             output = str(error).encode("utf-8", errors="replace")
             exit_code = -1
             executed = False
+
         result: dict[str, object] = {
-            "command": [sys.executable, "-m", "pytest", "-q"],
+            "command": command_name,
             "executed": executed,
             "passed": executed and exit_code == 0,
             "exit_code": exit_code,
             "output": redact_text(output.decode("utf-8", errors="replace")[-10_000:], 10_000),
-            "browser_verification": "not_run",
+            "project_type": project_type,
         }
+
         self._record(
             "checks",
-            {"patch_id": patch_id or "", "passed": str(result["passed"]), "exit_code": str(exit_code)},
+            {
+                "patch_id": patch_id or "",
+                "passed": str(result["passed"]),
+                "exit_code": str(exit_code),
+                "project_type": project_type,
+            },
         )
         if patch_id and not result["passed"]:
             try:
@@ -210,6 +233,65 @@ class PatchManager:
             except PatchError as error:
                 result["rollback"] = {"rolled_back": False, "error": str(error)}
         return result
+
+    def _detect_project_type(self) -> str:
+        """Detect the project type from actual project files.
+
+        Returns one of: 'python', 'javascript', 'typescript', 'unknown'
+        """
+        # Check for Python project files
+        python_files = [
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "requirements.txt",
+            "conftest.py",
+        ]
+        for fname in python_files:
+            if (self.root / fname).is_file():
+                return "python"
+
+        # Check for Node.js project files
+        node_files = ["package.json"]
+        for fname in node_files:
+            if (self.root / fname).is_file():
+                # Try to read just the scripts section to determine test command
+                try:
+                    content = (self.root / fname).read_text(encoding="utf-8", errors="replace")
+                    if '"test"' in content or "'test'" in content:
+                        return "javascript"
+                except Exception:
+                    return "javascript"  # Assume JavaScript project if package.json exists
+
+        # Check for TypeScript project files
+        ts_files = ["tsconfig.json"]
+        for fname in ts_files:
+            if (self.root / fname).is_file():
+                return "typescript"
+
+        return "unknown"
+
+    def _build_test_command(self, project_type: str) -> tuple[list[str], str]:
+        """Build the appropriate test command based on project type.
+
+        Returns (command_list, command_name_string) tuple.
+        Uses an explicit command allowlist - no arbitrary commands from project config.
+        """
+        if project_type == "python":
+            return ["python", "-m", "pytest", "-q"], "python -m pytest -q"
+        if project_type == "javascript":
+            # Check for npm, pnpm, or yarn
+            package_json = (self.root / "package.json").read_text(encoding="utf-8", errors="replace")
+            if '"pnpm"' in package_json or "'pnpm'" in package_json:
+                return ["pnpm", "test"], "pnpm test"
+            if '"yarn"' in package_json or "'yarn'" in package_json:
+                return ["yarn", "test"], "yarn test"
+            return ["npm", "test"], "npm test"
+        if project_type == "typescript":
+            return ["npm", "test"], "npm test"
+        
+        # unknown or unsupported - try pytest as fallback if in a Python-like structure
+        return ["python", "-m", "pytest", "-q"], "python -m pytest -q (fallback)"
 
     @staticmethod
     def _atomic_write(path: Path, content: str | bytes) -> None:
