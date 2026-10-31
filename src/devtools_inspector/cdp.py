@@ -6,8 +6,9 @@ import json
 import urllib.error
 import urllib.request
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlsplit
 
 from websockets.asyncio.client import ClientConnection, connect
@@ -15,7 +16,6 @@ from websockets.exceptions import ConnectionClosed
 
 from .models import Issue, SourceLocation, build_issue
 from .redaction import redact_text, redact_url
-
 
 _PERFORMANCE_MARKER = "__DEVTOOLS_INSPECTOR_PERFORMANCE__:"
 _PERFORMANCE_OBSERVER_SOURCE = r"""
@@ -71,11 +71,23 @@ def _validate_local_http_endpoint(endpoint: str) -> tuple[str, int]:
         parsed = urlsplit(endpoint)
         host = parsed.hostname
         port = parsed.port or 80
-        is_local = host == "localhost" or (host is not None and ipaddress.ip_address(host).is_loopback)
+        is_local = host == "localhost" or (
+            host is not None and ipaddress.ip_address(host).is_loopback
+        )
     except (ValueError, TypeError):
-        raise BrowserConnectionError("Use a valid local Chrome endpoint such as http://127.0.0.1:9222.") from None
-    if parsed.scheme != "http" or not is_local or parsed.username or parsed.password or parsed.path not in ("", "/"):
-        raise BrowserConnectionError("Only an unauthenticated localhost HTTP debugging endpoint is allowed.")
+        raise BrowserConnectionError(
+            "Use a valid local Chrome endpoint such as http://127.0.0.1:9222."
+        ) from None
+    if (
+        parsed.scheme != "http"
+        or not is_local
+        or parsed.username
+        or parsed.password
+        or parsed.path not in ("", "/")
+    ):
+        raise BrowserConnectionError(
+            "Only an unauthenticated localhost HTTP debugging endpoint is allowed."
+        )
     return host or "", port
 
 
@@ -91,10 +103,16 @@ def discover_targets(endpoint: str, timeout: float = 3.0) -> list[dict[str, Any]
             raise BrowserConnectionError("Chrome returned an oversized target list.")
         targets = json.loads(payload)
     except (OSError, urllib.error.URLError, json.JSONDecodeError) as error:
-        raise BrowserConnectionError(f"Could not read Chrome targets at {endpoint}: {error}") from error
+        raise BrowserConnectionError(
+            f"Could not read Chrome targets at {endpoint}: {error}"
+        ) from error
     if not isinstance(targets, list):
         raise BrowserConnectionError("Chrome returned an invalid target list.")
-    return [target for target in targets if isinstance(target, dict) and target.get("type") == "page"]
+    return [
+        target
+        for target in targets
+        if isinstance(target, dict) and target.get("type") == "page"
+    ]
 
 
 def _validate_websocket_target(ws_url: str, endpoint: str) -> None:
@@ -103,11 +121,22 @@ def _validate_websocket_target(ws_url: str, endpoint: str) -> None:
         parsed = urlsplit(ws_url)
         ws_host = parsed.hostname
         ws_port = parsed.port or 80
-        ws_local = ws_host == "localhost" or (ws_host is not None and ipaddress.ip_address(ws_host).is_loopback)
+        ws_local = ws_host == "localhost" or (
+            ws_host is not None and ipaddress.ip_address(ws_host).is_loopback
+        )
     except (ValueError, TypeError):
-        raise BrowserConnectionError("Chrome provided an invalid page WebSocket URL.") from None
-    if parsed.scheme != "ws" or not ws_local or ws_port != endpoint_port or not parsed.path.startswith("/devtools/page/"):
-        raise BrowserConnectionError("Chrome provided a page WebSocket outside the selected local debugging endpoint.")
+        raise BrowserConnectionError(
+            "Chrome provided an invalid page WebSocket URL."
+        ) from None
+    if (
+        parsed.scheme != "ws"
+        or not ws_local
+        or ws_port != endpoint_port
+        or not parsed.path.startswith("/devtools/page/")
+    ):
+        raise BrowserConnectionError(
+            "Chrome provided a page WebSocket outside the selected local debugging endpoint."
+        )
 
 
 class CDPClient:
@@ -124,13 +153,21 @@ class CDPClient:
 
     @property
     def connected(self) -> bool:
-        return self._socket is not None and self._reader_task is not None and not self._reader_task.done()
+        return (
+            self._socket is not None
+            and self._reader_task is not None
+            and not self._reader_task.done()
+        )
 
     async def open(self) -> None:
         try:
-            self._socket = await connect(self._ws_url, open_timeout=5, close_timeout=2, max_size=1_000_000)
+            self._socket = await connect(
+                self._ws_url, open_timeout=5, close_timeout=2, max_size=1_000_000
+            )
         except (OSError, TimeoutError, ConnectionClosed) as error:
-            raise BrowserConnectionError(f"Could not connect to the selected Chrome tab: {error}") from error
+            raise BrowserConnectionError(
+                f"Could not connect to the selected Chrome tab: {error}"
+            ) from error
         self._reader_task = asyncio.create_task(self._read_messages())
         try:
             await self.command("Runtime.enable")
@@ -145,7 +182,9 @@ class CDPClient:
             await self.close()
             raise
 
-    async def command(self, method: str, params: dict[str, Any] | None = None, timeout: float = 5.0) -> dict[str, Any]:
+    async def command(
+        self, method: str, params: dict[str, Any] | None = None, timeout: float = 5.0
+    ) -> dict[str, Any]:
         if not self.connected or self._socket is None:
             raise BrowserConnectionError("The selected browser tab is disconnected.")
         self._next_id += 1
@@ -153,17 +192,24 @@ class CDPClient:
         future = asyncio.get_running_loop().create_future()
         self._pending[command_id] = future
         try:
-            await self._socket.send(json.dumps({"id": command_id, "method": method, "params": params or {}}))
+            await self._socket.send(
+                json.dumps({"id": command_id, "method": method, "params": params or {}})
+            )
             return await asyncio.wait_for(future, timeout=timeout)
         except TimeoutError as error:
-            raise BrowserConnectionError(f"Chrome did not answer {method} within {timeout:g}s.") from error
+            raise BrowserConnectionError(
+                f"Chrome did not answer {method} within {timeout:g}s."
+            ) from error
         finally:
             self._pending.pop(command_id, None)
 
     async def install_performance_observer(self) -> bool:
         """Install a document-start long-task observer and attach it to the current page."""
         try:
-            await self.command("Page.addScriptToEvaluateOnNewDocument", {"source": _PERFORMANCE_OBSERVER_SOURCE})
+            await self.command(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {"source": _PERFORMANCE_OBSERVER_SOURCE},
+            )
             await self.command(
                 "Runtime.evaluate",
                 {"expression": _PERFORMANCE_OBSERVER_SOURCE, "returnByValue": True},
@@ -221,7 +267,9 @@ class CDPClient:
                 pass
         for future in self._pending.values():
             if not future.done():
-                future.set_exception(BrowserConnectionError("The browser connection closed."))
+                future.set_exception(
+                    BrowserConnectionError("The browser connection closed.")
+                )
         self._pending.clear()
 
     async def _read_messages(self) -> None:
@@ -233,26 +281,38 @@ class CDPClient:
                     future = self._pending.get(message["id"])
                     if future is not None and not future.done():
                         if "error" in message:
-                            future.set_exception(BrowserConnectionError(message["error"].get("message", "CDP command failed.")))
+                            future.set_exception(
+                                BrowserConnectionError(
+                                    message["error"].get(
+                                        "message", "CDP command failed."
+                                    )
+                                )
+                            )
                         else:
                             future.set_result(message.get("result", {}))
                 elif isinstance(message.get("method"), str):
                     if message["method"] == "Tracing.dataCollected":
                         values = message.get("params", {}).get("value", [])
                         if isinstance(values, list):
-                            self._trace_events.extend(item for item in values if isinstance(item, dict))
+                            self._trace_events.extend(
+                                item for item in values if isinstance(item, dict)
+                            )
                     elif message["method"] == "Tracing.tracingComplete":
                         self._tracing_complete.set()
                     try:
                         self._on_event(message["method"], message.get("params", {}))
-                    except Exception:
+                    except (KeyError, ValueError, TypeError):
                         continue
         except (ConnectionClosed, OSError, json.JSONDecodeError):
             pass
         finally:
             for future in self._pending.values():
                 if not future.done():
-                    future.set_exception(BrowserConnectionError("The browser debugging connection was lost."))
+                    future.set_exception(
+                        BrowserConnectionError(
+                            "The browser debugging connection was lost."
+                        )
+                    )
 
 
 @dataclass
@@ -342,7 +402,9 @@ class DiagnosticCollector:
             )
         )
 
-    def add_trace_events(self, events: list[dict[str, Any]], page_url: str | None) -> None:
+    def add_trace_events(
+        self, events: list[dict[str, Any]], page_url: str | None
+    ) -> None:
         """Add CDP trace fallback findings after a trace has been explicitly collected."""
         trace_actions: list[dict[str, Any]] = []
         for event in events:
@@ -354,8 +416,16 @@ class DiagnosticCollector:
                 continue
             args = event.get("args")
             data = args.get("data") if isinstance(args, dict) else None
-            event_type = data.get("type", "unknown") if isinstance(data, dict) else "unknown"
-            trace_actions.append({"name": redact_text(str(event_type), 80), "start": start, "end": start + duration})
+            event_type = (
+                data.get("type", "unknown") if isinstance(data, dict) else "unknown"
+            )
+            trace_actions.append(
+                {
+                    "name": redact_text(str(event_type), 80),
+                    "start": start,
+                    "end": start + duration,
+                }
+            )
         for event in events:
             if event.get("name") != "RunTask" or event.get("ph") != "X":
                 continue
@@ -364,7 +434,11 @@ class DiagnosticCollector:
             if start is None or duration_us is None or duration_us < 50_000:
                 continue
             end = start + duration_us
-            actions = [action for action in trace_actions if action["start"] <= end and action["end"] >= start]
+            actions = [
+                action
+                for action in trace_actions
+                if action["start"] <= end and action["end"] >= start
+            ]
             duration_ms = duration_us / 1000
             evidence: dict[str, Any] = {
                 "source": "CDP Tracing fallback",
@@ -408,14 +482,22 @@ class DiagnosticCollector:
         kind = message.get("kind")
         if kind == "support":
             supported = message.get("longtask")
-            self.performance_observer_supported = supported if isinstance(supported, bool) else False
+            self.performance_observer_supported = (
+                supported if isinstance(supported, bool) else False
+            )
             return
         if kind == "action":
             start = self._number(message.get("processingStart"))
             end = self._number(message.get("processingEnd"))
             if start is None or end is None or end < start:
                 return
-            self._performance_actions.append({"name": redact_text(str(message.get("name") or "unknown"), 80), "start": start, "end": end})
+            self._performance_actions.append(
+                {
+                    "name": redact_text(str(message.get("name") or "unknown"), 80),
+                    "start": start,
+                    "end": end,
+                }
+            )
             self._performance_actions = self._performance_actions[-100:]
             return
         if kind != "longtask":
@@ -425,7 +507,11 @@ class DiagnosticCollector:
         if start is None or duration is None or duration < 50:
             return
         end = start + duration
-        actions = [action for action in self._performance_actions if action["start"] <= end and action["end"] >= start]
+        actions = [
+            action
+            for action in self._performance_actions
+            if action["start"] <= end and action["end"] >= start
+        ]
         url = redact_url(str(message.get("url") or "")) or None
         attribution = message.get("attribution")
         evidence: dict[str, Any] = {
@@ -436,7 +522,10 @@ class DiagnosticCollector:
         }
         if isinstance(attribution, list):
             evidence["attribution"] = [
-                {key: redact_text(str(item.get(key) or ""), 240) for key in ("containerId", "containerName", "containerSrc")}
+                {
+                    key: redact_text(str(item.get(key) or ""), 240)
+                    for key in ("containerId", "containerName", "containerSrc")
+                }
                 for item in attribution[:10]
                 if isinstance(item, dict)
             ]
@@ -459,10 +548,18 @@ class DiagnosticCollector:
     def _exception(self, params: dict[str, Any]) -> None:
         details = params.get("exceptionDetails", {})
         exception = details.get("exception", {})
-        raw_text = exception.get("description") or details.get("text") or "Uncaught JavaScript exception"
+        raw_text = (
+            exception.get("description")
+            or details.get("text")
+            or "Uncaught JavaScript exception"
+        )
         text = redact_text(str(raw_text))
         location = self._location(details.get("stackTrace"))
-        url = redact_url(details["url"]) if details.get("url") else (location.url if location else None)
+        url = (
+            redact_url(details["url"])
+            if details.get("url")
+            else (location.url if location else None)
+        )
         self._add(
             build_issue(
                 category="runtime",
@@ -498,7 +595,10 @@ class DiagnosticCollector:
         status = int(response.get("status", 0))
         if status < 400:
             return
-        request = self._requests.get(params.get("requestId"), _Request(redact_url(response.get("url", "")), "GET", None, 0, None))
+        request = self._requests.get(
+            params.get("requestId"),
+            _Request(redact_url(response.get("url", "")), "GET", None, 0, None),
+        )
         self._add(
             build_issue(
                 category="network",
@@ -531,7 +631,11 @@ class DiagnosticCollector:
                 explanation=f"{request.method} {request.url} failed: {reason}.",
                 url=request.url,
                 target_id=self.target_id,
-                evidence={"error_text": reason, "resource_type": request.resource_type, "initiator": request.initiator},
+                evidence={
+                    "error_text": reason,
+                    "resource_type": request.resource_type,
+                    "initiator": request.initiator,
+                },
             )
         )
 
@@ -547,7 +651,11 @@ class BrowserSession:
     async def list_targets(self, endpoint: str) -> list[dict[str, str]]:
         targets = await asyncio.to_thread(discover_targets, endpoint)
         return [
-            {"target_id": target.get("id", ""), "title": target.get("title", ""), "url": redact_url(target.get("url", ""))}
+            {
+                "target_id": target.get("id", ""),
+                "title": target.get("title", ""),
+                "url": redact_url(target.get("url", "")),
+            }
             for target in targets
         ]
 
@@ -555,12 +663,18 @@ class BrowserSession:
         async with self._lock:
             await self.disconnect()
             targets = await asyncio.to_thread(discover_targets, endpoint)
-            target = next((item for item in targets if item.get("id") == target_id), None)
+            target = next(
+                (item for item in targets if item.get("id") == target_id), None
+            )
             if target is None:
-                raise BrowserConnectionError(f"Page target {target_id!r} is unavailable. List targets and select an open page.")
+                raise BrowserConnectionError(
+                    f"Page target {target_id!r} is unavailable. List targets and select an open page."
+                )
             ws_url = target.get("webSocketDebuggerUrl")
             if not isinstance(ws_url, str):
-                raise BrowserConnectionError("The selected page does not expose a CDP WebSocket URL.")
+                raise BrowserConnectionError(
+                    "The selected page does not expose a CDP WebSocket URL."
+                )
             _validate_websocket_target(ws_url, endpoint)
             collector = DiagnosticCollector(target_id)
             client = CDPClient(ws_url, collector.handle_event)
@@ -568,7 +682,11 @@ class BrowserSession:
             await client.install_performance_observer()
             await client.start_performance_tracing()
             self.endpoint = endpoint
-            self.target = {"target_id": target_id, "title": target.get("title", ""), "url": redact_url(target.get("url", ""))}
+            self.target = {
+                "target_id": target_id,
+                "title": target.get("title", ""),
+                "url": redact_url(target.get("url", "")),
+            }
             self.collector = collector
             self.client = client
             return self.status()
@@ -593,13 +711,19 @@ class BrowserSession:
 
     def diagnostics(self, category: str | None = None) -> list[Issue]:
         if self.collector is None:
-            raise BrowserConnectionError("Connect to a browser target before requesting diagnostics.")
+            raise BrowserConnectionError(
+                "Connect to a browser target before requesting diagnostics."
+            )
         issues = self.collector.issues
-        return [issue for issue in issues if category is None or issue.category == category]
+        return [
+            issue for issue in issues if category is None or issue.category == category
+        ]
 
     async def performance_diagnostics(self) -> list[Issue]:
         if self.collector is None or self.client is None:
-            raise BrowserConnectionError("Connect to a browser target before requesting performance diagnostics.")
+            raise BrowserConnectionError(
+                "Connect to a browser target before requesting performance diagnostics."
+            )
         events = await self.client.stop_performance_tracing()
         page_url = self.target.get("url") if self.target else None
         self.collector.add_trace_events(events, page_url)

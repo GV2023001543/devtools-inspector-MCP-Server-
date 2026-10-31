@@ -2,67 +2,34 @@
 
 A local Python MCP server for diagnosing an explicitly selected Chrome page. It collects normalized console/runtime issues, failed network requests, and main-thread performance findings. It can prepare an exact, reviewed source patch for an authorized local repository and run its test suite; it does not gain source access from a public website URL.
 
-The package is named `devtools-inspector-mcp`. Verify this name is available on PyPI before publishing.
+The package is named `devtools-inspector-mcp` and is available on PyPI.
 
 ---
-## Features
 
-- Browser target discovery via CDP WebSocket endpoint
-- Live Console, Network, and Performance monitoring
-- Normalized and deduplicated diagnostics
-- SHA-256 verified patch proposals with CRLF preservation
-- Path traversal blocking and project root enforcement
-- `propose_fix` → `apply_patch` (`approved=true`) → `run_project_checks` → `rollback_patch` workflow
+## Quick Start (One Command)
+
+```bash
+uv tool install devtools-inspector-mcp
+```
+
+That's it. You now have two commands:
+
+| Command | Purpose |
+|---------|---------|
+| `live-devtools-mcp` | Run the MCP server (connects to Chrome on port 9222) |
+| `live-devtools-mcp-setup` | Configure your agent (VS Code, Codex, Cline) |
+
+---
+
 ## Prerequisites
 
 - Python 3.11 or newer
-- `uv` package manager recommended for installation
+- `uv` package manager ([install](https://docs.astral.sh/uv/getting-started/installation/))
 - Google Chrome or Chromium with remote debugging enabled
 - MCP-compatible client (Cline, VS Code, Codex CLI/IDE, or other stdio MCP supporter)
 - Supported OS: Windows PowerShell, macOS Terminal, or Linux shell
-## Installation
 
-### From PyPI (recommended)
-
-```powershell
-# Windows PowerShell
-uv tool install --upgrade devtools-inspector-mcp
-```
-
-```sh
-# macOS and Linux
-uv tool install --upgrade devtools-inspector-mcp
-```
-
-### Verify installation
-
-```powershell
-# Windows PowerShell
-live-devtools-mcp --help
-```
-
-```sh
-# macOS and Linux
-live-devtools-mcp --help
-```
-
-### From this checkout (development)
-
-```powershell
-# Windows PowerShell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-python -m pytest -q
-```
-
-```sh
-# macOS and Linux
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-pip install -q pytest pytest-asyncio
-```
+---
 
 ## Chrome Setup
 
@@ -79,14 +46,20 @@ The server connects to Chrome via the Chrome DevTools Protocol (CDP) WebSocket e
 
 ### macOS
 
-```sh
-open -na "Google Chrome" --args   --remote-debugging-address=127.0.0.1   --remote-debugging-port=9222   --user-data-dir="${TMPDIR:-/tmp}/devtools-inspector-chrome"
+```bash
+open -na "Google Chrome" --args \
+  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-port=9222 \
+  --user-data-dir="${TMPDIR:-/tmp}/devtools-inspector-chrome"
 ```
 
 ### Linux
 
-```sh
-google-chrome   --remote-debugging-address=127.0.0.1   --remote-debugging-port=9222   --user-data-dir="${TMPDIR:-/tmp}/devtools-inspector-chrome"
+```bash
+google-chrome \
+  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-port=9222 \
+  --user-data-dir="${TMPDIR:-/tmp}/devtools-inspector-chrome"
 ```
 
 ### Open your website in Chrome
@@ -94,11 +67,14 @@ google-chrome   --remote-debugging-address=127.0.0.1   --remote-debugging-port=9
 1. Launch Chrome using one of the commands above
 2. Open `http://localhost:3000` (or your local development server) in the new Chrome window
 3. The page must be open for `list_browser_targets` to discover it
+
+---
+
 ## MCP Client Configuration
 
-### Cline
+### Cline (VS Code extension)
 
-If you're using Cline (VS Code extension), add the following to your VS Code settings or `.vscode/mcp.json`:
+Add to your VS Code settings or `.vscode/mcp.json`:
 
 ```json
 {
@@ -136,7 +112,7 @@ If your MCP client uses `.vscode/mcp.json`:
 
 ### Codex CLI/IDE
 
-For Codex, configure the MCP server in your Codex settings or `codex_mcp.json`:
+Configure the MCP server in your Codex settings or `codex_mcp.json`:
 
 ```json
 {
@@ -151,13 +127,8 @@ For Codex, configure the MCP server in your Codex settings or `codex_mcp.json`:
 
 Then run `codex mcp refresh` to discover the tools.
 
-### Finding the executable path
+---
 
-| OS | Path |
-|---|---|
-| **Windows** | Installed via `uv tool install` to the local bin directory, or `\.venv\Scripts\live-devtools-mcp.exe` inside your venv |
-| **macOS** | `~/\.local\/share\/uv\/tools\/devtools-inspector-mcp\/live-devtools-mcp` |
-| **Linux** | `~/\.local\/share\/uv\/tools\/devtools-inspector-mcp\/live-devtools-mcp` |
 ## First-Time Usage
 
 ### 1. Start Chrome with debugging
@@ -166,13 +137,7 @@ Use the Chrome setup commands above to launch Chrome with remote debugging on po
 
 ### 2. Start the MCP server
 
-```powershell
-# Windows PowerShell
-live-devtools-mcp
-```
-
-```sh
-# macOS and Linux
+```bash
 live-devtools-mcp
 ```
 
@@ -225,23 +190,12 @@ Call `start_live_inspection` to begin collecting diagnostics:
 - **Performance**: `inspect_performance`
 - **All diagnostics**: `get_live_diagnostics`
 
-### 7. Safe patch workflow (optional)
+---
 
-1. Inspect diagnostics and identify the file to fix
-2. Call `propose_fix` with:
-   - `relative_path`: project-relative path (e.g., `src/components/Button.py`)
-   - `expected_sha256`: current file hash
-   - `old_text`: current code snippet
-   - `new_text`: proposed replacement
-   - `rationale`: why this fix is needed
-3. Review the `patch_id` returned
-4. Call `apply_patch` with `approved=true` to apply
-5. Run `run_project_checks` to verify
-6. Use `rollback_patch` to revert if needed
 ## Complete MCP Tool Reference
 
 | Tool | Purpose | Key Arguments |
-|------|---------|-------------|
+|------|---------|---------------|
 | `list_browser_targets` | List open Chrome pages from a CDP endpoint | `endpoint` (default: `http://127.0.0.1:9222`) |
 | `connect_browser` | Connect CDP session to a selected page target | `endpoint`, `target_id` |
 | `select_browser_target` | Switch active CDP session to a selected page target | `endpoint`, `target_id` (same as `connect_browser`) |
@@ -257,6 +211,9 @@ Call `start_live_inspection` to begin collecting diagnostics:
 | `apply_patch` | Apply a reviewed patch only after explicit approval and save a recovery point | `patch_id`, `approved` (must be `true`) |
 | `run_project_checks` | Run the fixed pytest command; roll back the linked patch if checks fail | optional `patch_id` |
 | `rollback_patch` | Restore a patch recovery point if the file has not changed since application | `patch_id` |
+
+---
+
 ## Example AI Assistant Prompts
 
 You can now give these prompts to your AI coding assistant (Cline, Codex, etc.):
@@ -272,6 +229,25 @@ You can now give these prompts to your AI coding assistant (Cline, Codex, etc.):
 | "Run the project tests and roll back the patch if they fail" | `run_project_checks` |
 | "Roll back the patch I just applied" | `rollback_patch` |
 | "List all available browser targets" | `list_browser_targets` |
+
+---
+
+## Safe Patch Workflow (Optional)
+
+1. Inspect diagnostics and identify the file to fix
+2. Call `propose_fix` with:
+   - `relative_path`: project-relative path (e.g., `src/components/Button.py`)
+   - `expected_sha256`: current file hash
+   - `old_text`: current code snippet
+   - `new_text`: proposed replacement
+   - `rationale`: why this fix is needed
+3. Review the `patch_id` returned
+4. Call `apply_patch` with `approved=true` to apply
+5. Run `run_project_checks` to verify
+6. Use `rollback_patch` to revert if needed
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |
@@ -285,9 +261,13 @@ You can now give these prompts to your AI coding assistant (Cline, Codex, etc.):
 | **Executable not found** | - On Windows: ensure venv Scripts folder is in PATH<br>- On macOS/Linux: `uv tool install --upgrade devtools-inspector-mcp` installs to `~/.local/share/uv/tools/` |
 | **Wrong project root** | - Set `DEVTOOLS_PROJECT_ROOT` environment variable<br>- Or run `live-devtools-mcp-setup --project-root .` to configure<br>- Or pass `--project-root .` via your MCP client's env vars |
 
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE.txt). See the LICENSE.txt file for full terms.
+
+---
 
 ## Contribution
 
@@ -299,22 +279,15 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 4. Push to the branch (`git push origin feature/foo-bar`)
 5. Open a Pull Request
 
+---
+
 ## Support
 
 - **GitHub Issues**: Report bugs and feature requests at the [GitHub repository](https://github.com/your-username/devtools-inspector-mcp/issues)
 - **Discussions**: Ask questions and share use cases at [GitHub Discussions](https://github.com/your-username/devtools-inspector-mcp/discussions)
 - **PyPI**: `uv tool info devtools-inspector-mcp` for installation info
 
-## Release Preparation
-
-1. Recheck the PyPI package name immediately before upload
-2. Build and inspect artifacts: `uv build`
-3. Test the wheel in a clean virtual environment on each supported platform
-4. Publish only after review: `uv publish`
-5. Host `scripts/install.ps1` and `scripts/install.sh` on a versioned HTTPS release URL you control
-6. Publish SHA-256 checksums and replace example domains in the README
-
-**Do not publish the package or installer scripts until the artifacts, URLs, checksums, and release version have been reviewed.**
+---
 
 ## Automatic Workspace Detection
 
@@ -333,6 +306,6 @@ $env:DEVTOOLS_PROJECT_ROOT="C:\path\to\your\project"
 
 Or using the setup tool:
 
-```sh
+```bash
 live-devtools-mcp-setup --project-root .
 ```

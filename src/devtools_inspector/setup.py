@@ -11,7 +11,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 SERVER_NAME = "live-devtools-inspector"
 SERVER_COMMAND = "live-devtools-mcp"
 
@@ -34,7 +33,9 @@ def merge_vscode_configuration(existing: dict[str, Any]) -> tuple[dict[str, Any]
         raise SetupError("The VS Code MCP configuration must contain a JSON object.")
     servers = existing.get("servers", {})
     if not isinstance(servers, dict):
-        raise SetupError("The VS Code MCP configuration has a non-object 'servers' field.")
+        raise SetupError(
+            "The VS Code MCP configuration has a non-object 'servers' field."
+        )
     desired = vscode_server_definition()
     current = servers.get(SERVER_NAME)
     if current is not None:
@@ -57,7 +58,9 @@ def configure_vscode(project_root: Path) -> Path:
         try:
             existing = json.loads(config_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as error:
-            raise SetupError(f"Cannot merge invalid JSON in {config_path}: {error}") from error
+            raise SetupError(
+                f"Cannot merge invalid JSON in {config_path}: {error}"
+            ) from error
     else:
         existing = {}
     merged, changed = merge_vscode_configuration(existing)
@@ -65,7 +68,9 @@ def configure_vscode(project_root: Path) -> Path:
         return config_path
     config_path.parent.mkdir(parents=True, exist_ok=True)
     if config_path.exists():
-        backup = config_path.with_name(f"mcp.json.devtools-inspector.{int(time.time())}.bak")
+        backup = config_path.with_name(
+            f"mcp.json.devtools-inspector.{int(time.time())}.bak"
+        )
         shutil.copy2(config_path, backup)
     temporary = config_path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
@@ -77,18 +82,29 @@ def verify_server_startup(command: str = SERVER_COMMAND) -> None:
     executable = shutil.which(command)
     if executable is None:
         scripts_dir = Path(sys.executable).parent
-        candidate = scripts_dir / (f"{command}.exe" if sys.platform == "win32" else command)
+        candidate = scripts_dir / (
+            f"{command}.exe" if sys.platform == "win32" else command
+        )
         executable = str(candidate) if candidate.is_file() else None
     if executable is None:
         raise SetupError(f"Could not find {command!r} on PATH after installation.")
     process = subprocess.Popen(
-        [executable], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        [executable],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     try:
         time.sleep(0.5)
         if process.poll() is not None:
-            stderr = process.stderr.read().decode("utf-8", errors="replace") if process.stderr else ""
-            raise SetupError(f"{command} exited during its startup check: {stderr.strip()}")
+            stderr = (
+                process.stderr.read().decode("utf-8", errors="replace")
+                if process.stderr
+                else ""
+            )
+            raise SetupError(
+                f"{command} exited during its startup check: {stderr.strip()}"
+            )
     finally:
         if process.poll() is None:
             process.terminate()
@@ -102,8 +118,12 @@ def verify_server_startup(command: str = SERVER_COMMAND) -> None:
 def configure_codex(project_root: Path) -> None:
     codex = shutil.which("codex")
     if codex is None:
-        raise SetupError("Codex CLI was not found on PATH. Install Codex, then rerun setup with --agent codex.")
-    existing = subprocess.run([codex, "mcp", "get", SERVER_NAME], capture_output=True, text=True)
+        raise SetupError(
+            "Codex CLI was not found on PATH. Install Codex, then rerun setup with --agent codex."
+        )
+    existing = subprocess.run(
+        [codex, "mcp", "get", SERVER_NAME], check=False, capture_output=True, text=True
+    )
     if existing.returncode == 0:
         return
     result = subprocess.run(
@@ -117,10 +137,13 @@ def configure_codex(project_root: Path) -> None:
             "--",
             SERVER_COMMAND,
         ],
+        check=False,
         text=True,
     )
     if result.returncode != 0:
-        raise SetupError("Codex rejected the MCP configuration; no fallback file was edited.")
+        raise SetupError(
+            "Codex rejected the MCP configuration; no fallback file was edited."
+        )
 
 
 def portable_configuration() -> str:
@@ -130,9 +153,18 @@ def portable_configuration() -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Configure DevTools Inspector for a local coding agent.")
-    parser.add_argument("--agent", choices=("vscode", "codex", "manual"), help="Agent to configure.")
-    parser.add_argument("--project-root", type=Path, default=Path.cwd(), help="Authorized source repository for repair tools.")
+    parser = argparse.ArgumentParser(
+        description="Configure DevTools Inspector for a local coding agent."
+    )
+    parser.add_argument(
+        "--agent", choices=("vscode", "codex", "manual"), help="Agent to configure."
+    )
+    parser.add_argument(
+        "--project-root",
+        type=Path,
+        default=Path.cwd(),
+        help="Authorized source repository for repair tools.",
+    )
     args = parser.parse_args(argv)
     project_root = args.project_root.resolve()
     if not project_root.is_dir():
@@ -140,14 +172,22 @@ def main(argv: list[str] | None = None) -> None:
     try:
         verify_server_startup()
         if args.agent is None:
-            args.agent = input("Configure which agent? [vscode/codex/manual] ").strip().lower()
+            args.agent = (
+                input("Configure which agent? [vscode/codex/manual] ").strip().lower()
+            )
         if args.agent == "vscode":
-            print(f"Configured VS Code workspace MCP server: {configure_vscode(project_root)}")
+            print(
+                f"Configured VS Code workspace MCP server: {configure_vscode(project_root)}"
+            )
         elif args.agent == "codex":
             configure_codex(project_root)
-            print("Configured Codex MCP server. Existing matching configuration was left unchanged.")
+            print(
+                "Configured Codex MCP server. Existing matching configuration was left unchanged."
+            )
         elif args.agent == "manual":
-            print("Copy this portable MCP configuration into your agent's documented configuration location:")
+            print(
+                "Copy this portable MCP configuration into your agent's documented configuration location:"
+            )
             print(portable_configuration())
         else:
             raise SetupError("Choose vscode, codex, or manual.")

@@ -7,8 +7,7 @@ from typing import Literal
 from fastmcp import FastMCP
 
 from .cdp import BrowserConnectionError, BrowserSession
-from .fixing import PatchError, PatchManager
-
+from .fixing import PatchManager
 
 mcp = FastMCP(
     "Live DevTools Inspector",
@@ -20,7 +19,9 @@ patches = PatchManager(project_root)
 
 
 @mcp.tool
-async def list_browser_targets(endpoint: str = "http://127.0.0.1:9222") -> list[dict[str, str]]:
+async def list_browser_targets(
+    endpoint: str = "http://127.0.0.1:9222",
+) -> list[dict[str, str]]:
     """List page targets from a local Chrome debugging endpoint."""
     return await browser.list_targets(endpoint)
 
@@ -68,7 +69,12 @@ def stop_live_inspection() -> dict[str, object]:
 
 
 @mcp.tool
-def get_live_diagnostics(category: Literal["console", "runtime", "network", "performance", "security", "accessibility"] | None = None) -> list[dict[str, object]]:
+def get_live_diagnostics(
+    category: Literal[
+        "console", "runtime", "network", "performance", "security", "accessibility"
+    ]
+    | None = None,
+) -> list[dict[str, object]]:
     """Return normalized, deduplicated diagnostics collected for the active page."""
     return [issue.model_dump(mode="json") for issue in browser.diagnostics(category)]
 
@@ -76,7 +82,11 @@ def get_live_diagnostics(category: Literal["console", "runtime", "network", "per
 @mcp.tool
 def inspect_console() -> list[dict[str, object]]:
     """Return captured console warnings, errors, and runtime exceptions."""
-    return [issue.model_dump(mode="json") for issue in browser.diagnostics() if issue.category in ("console", "runtime")]
+    return [
+        issue.model_dump(mode="json")
+        for issue in browser.diagnostics()
+        if issue.category in ("console", "runtime")
+    ]
 
 
 @mcp.tool
@@ -88,13 +98,24 @@ def inspect_network() -> list[dict[str, object]]:
 @mcp.tool
 async def inspect_performance() -> list[dict[str, object]]:
     """Return observed long tasks, using explicitly labeled CDP tracing only when needed."""
-    return [issue.model_dump(mode="json") for issue in await browser.performance_diagnostics()]
+    return [
+        issue.model_dump(mode="json")
+        for issue in await browser.performance_diagnostics()
+    ]
 
 
 @mcp.tool
-def propose_fix(relative_path: str, expected_sha256: str, old_text: str, new_text: str, rationale: str) -> dict[str, str | bool]:
+def propose_fix(
+    relative_path: str,
+    expected_sha256: str,
+    old_text: str,
+    new_text: str,
+    rationale: str,
+) -> dict[str, str | bool]:
     """Prepare a minimal exact-snippet patch without changing files."""
-    return patches.propose(relative_path, expected_sha256, old_text, new_text, rationale)
+    return patches.propose(
+        relative_path, expected_sha256, old_text, new_text, rationale
+    )
 
 
 @mcp.tool

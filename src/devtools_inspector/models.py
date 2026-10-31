@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-Category = Literal["console", "runtime", "network", "performance", "security", "accessibility"]
+Category = Literal[
+    "console", "runtime", "network", "performance", "security", "accessibility"
+]
 Severity = Literal["error", "warning", "info"]
 Confidence = Literal["confirmed", "correlated", "potential", "suspicion"]
 Verification = Literal["unverified", "passed", "failed", "not_applicable"]
@@ -29,7 +30,7 @@ class Issue(BaseModel):
     confidence: Confidence
     title: str
     explanation: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     url: str | None = None
     target_id: str | None = None
     source_location: SourceLocation | None = None
